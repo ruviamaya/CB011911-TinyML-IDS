@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Large dataset files - never commit to GitHub
+data-pipeline/data/*.csv
+data-pipeline/data/*.pcap
+data-pipeline/data/processed/
