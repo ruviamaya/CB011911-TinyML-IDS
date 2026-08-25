@@ -24,6 +24,10 @@ NUM_CYCLES = 5
 
 def run_simulation():
     client = mqtt.Client()
+    import os
+    USERNAME = os.environ.get("MQTT_USER", "idsuser")
+    PASSWORD = os.environ.get("MQTT_PASS", "ids2026secure")
+    client.username_pw_set(USERNAME, PASSWORD)
     client.connect("localhost", 1883, 60)
     client.loop_start()
 

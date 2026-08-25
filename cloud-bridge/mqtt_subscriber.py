@@ -25,5 +25,9 @@ client.on_message = on_message
 
 print("CB011911 TinyML-IDS — Cloud Alert Subscriber")
 print("=" * 55)
+import os
+USERNAME = os.environ.get("MQTT_USER", "idsuser")
+PASSWORD = os.environ.get("MQTT_PASS", "ids2026secure")
+client.username_pw_set(USERNAME, PASSWORD)
 client.connect("localhost", 1883, 60)
 client.loop_forever()
