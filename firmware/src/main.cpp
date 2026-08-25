@@ -54,8 +54,19 @@ const char* getExplanation(int cls, const float* feat) {
   return "Traffic within expected parameters.";
 }
 
+// Adds controlled random noise to a feature value
+// noiseLevel 0.10 = up to 10% variation in either direction
+float applyNoise(float value, float noiseLevel) {
+  float noise = (random(-1000, 1000) / 10000.0f) * noiseLevel;
+  float noisy = value + noise;
+  if (noisy < 0.0f) noisy = 0.0f;  // clamp to valid range
+  if (noisy > 1.0f) noisy = 1.0f;
+  return noisy;
+}
+
 void setup() {
   Serial.begin(115200);
+  randomSeed(millis());
   delay(2000);
   Serial.println("==================================");
   Serial.println(" CB011911 TinyML-IDS — MVP");
@@ -65,37 +76,49 @@ void setup() {
 }
 
 void loop() {
-  for (int s = 0; s < NUM_SAMPLES; s++) {
-    const float* vec = TEST_VECTORS[s];
+  static int cycle = 0;
+  static float noiseLevel = 0.05f;  // starts at 5% noise
+  cycle++;
 
-    // Time inference
-    unsigned long t0 = micros();
-    int pred = predictClass(vec);
-    unsigned long t1 = micros();
-
-    // Time XAI lookup
-    unsigned long t2 = micros();
-    const char* expl = getExplanation(pred, vec);
-    unsigned long t3 = micros();
-
-    unsigned long inferUs = t1 - t0;
-    unsigned long xaiUs   = t3 - t2;
-    unsigned long totalUs = inferUs + xaiUs;
-
-    Serial.println("--- Inference Cycle ---");
-    Serial.print("Expected:    "); Serial.println(EXPECTED[s]);
-    Serial.print("Predicted:   "); Serial.println(CLASS_NAMES[pred]);
-    Serial.print("Explanation: "); Serial.println(expl);
-    Serial.print("MQTT payload: {\"class\":\"");
-    Serial.print("Inference time: "); Serial.print(inferUs); Serial.println(" us");
-    Serial.print("XAI time:       "); Serial.print(xaiUs);   Serial.println(" us");
-    Serial.print("Total time:     "); Serial.print(totalUs); Serial.println(" us");
-    Serial.println("{\"class\":\"" + String(CLASS_NAMES[pred]) + "\",\"explanation\":\"" + String(expl) + "\"}");
-    Serial.println();
-    delay(2000);
-  }
-  
-  Serial.println("--- Cycle complete. Restarting... ---");
+  Serial.println("========================================");
+  Serial.println("SYNTHETIC TRAFFIC — Cycle " + String(cycle));
+  Serial.print("Noise level: +/-"); Serial.print(noiseLevel * 100, 0); Serial.println("%");
+  Serial.println("========================================");
   Serial.println();
-  delay(3000);
+
+  for (int s = 0; s < NUM_SAMPLES; s++) {
+    // Build noisy version of this sample
+    float noisyVec[NUM_FEATURES];
+    for (int f = 0; f < NUM_FEATURES; f++) {
+      noisyVec[f] = applyNoise(TEST_VECTORS[s][f], noiseLevel);
+    }
+
+    // Inference + timing
+    unsigned long t0 = micros();
+    int pred = predictClass(noisyVec);
+    unsigned long t1 = micros();
+    const char* expl = getExplanation(pred, noisyVec);
+    unsigned long t2 = micros();
+
+    bool match = (strcmp(EXPECTED[s], CLASS_NAMES[pred]) == 0);
+
+    Serial.println("--- Sample " + String(s + 1) + " ---");
+    Serial.print("Base class:   "); Serial.println(EXPECTED[s]);
+    Serial.print("Predicted:    "); Serial.println(CLASS_NAMES[pred]);
+    Serial.print("Stable:       "); Serial.println(match ? "YES" : "Boundary case");
+    Serial.print("Explanation:  "); Serial.println(expl);
+    Serial.print("Cycle time:   "); Serial.print(t2 - t0); Serial.println(" us");
+    Serial.print("{\"class\":\""); Serial.print(CLASS_NAMES[pred]);
+    Serial.print("\",\"explanation\":\""); Serial.print(expl);
+    Serial.println("\"}");
+    Serial.println();
+    delay(1500);
+  }
+
+  // Increase noise each cycle: 5% -> 10% -> 15% -> 20% -> back to 5%
+  noiseLevel += 0.05f;
+  if (noiseLevel > 0.20f) noiseLevel = 0.05f;
+
+  Serial.println();
+  delay(2000);
 }
