@@ -1,0 +1,7 @@
+[wokwi]
+version = 1
+firmware = ".pio/build/pico/firmware.uf2"
+elf = ".pio/build/pico/firmware.elf"
+
+[serial]
+port = 0
